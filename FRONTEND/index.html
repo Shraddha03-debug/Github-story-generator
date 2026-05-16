@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Story Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #050508; --surface: #0d0d14; --border: rgba(255,255,255,0.07);
+    --text: #e8e6f0; --muted: #6b6880; --accent: #c8ff00;
+    --accent2: #7c3aed; --accent3: #f97316; --card-bg: rgba(255,255,255,0.03);
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; position: relative; z-index: 1; }
+
+  /* HERO */
+  .hero { text-align: center; padding: 4rem 0 3rem; }
+  .hero-eyebrow { font-size: 11px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 1.5rem; }
+  .hero-title { font-family: 'Syne', sans-serif; font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 800; line-height: 0.95; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+  .hero-title span { color: var(--accent); }
+  .hero-sub { color: var(--muted); font-size: 13px; max-width: 360px; margin: 0 auto; line-height: 1.7; }
+  .input-row { display: flex; max-width: 480px; margin: 2rem auto 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); transition: border-color 0.2s; }
+  .input-row:focus-within { border-color: var(--accent); }
+  .input-prefix { padding: 0 1rem; display: flex; align-items: center; color: var(--accent); font-size: 14px; border-right: 1px solid var(--border); white-space: nowrap; }
+  .input-row input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 14px; padding: 0.85rem 1rem; min-width: 0; }
+  .input-row input::placeholder { color: var(--muted); }
+  .btn-generate { background: var(--accent); color: #000; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; padding: 0 1.5rem; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.2s; white-space: nowrap; }
+  .btn-generate:hover { opacity: 0.85; }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+  .error-msg { color: #f87171; font-size: 12px; margin-top: 0.75rem; }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 4rem 0; display: none; }
+  .loading-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 1rem; }
+  .dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,100%{opacity:0.2;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }
+  .loading-text { color: var(--muted); font-size: 13px; }
+
+  /* STORY */
+  .story { display: none; animation: fadeUp 0.6s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Profile Banner */
+  .profile-banner { display: flex; align-items: center; gap: 1.5rem; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; background: var(--card-bg); margin-bottom: 2rem; position: relative; overflow: hidden; }
+  .profile-banner::before { content: ''; position: absolute; top: -50%; right: -50%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(200,255,0,0.08) 0%, transparent 70%); pointer-events: none; }
+  .avatar { width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--accent); flex-shrink: 0; }
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-name { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; }
+  .profile-bio { color: var(--muted); font-size: 12px; margin-top: 4px; font-style: italic; }
+  .profile-meta { display: flex; gap: 1.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  .meta-item { font-size: 11px; color: var(--muted); }
+  .meta-item a { color: var(--accent); text-decoration: none; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 2rem; }
+  .stat-box { background: var(--surface); padding: 1.25rem; text-align: center; }
+  .stat-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+  /* Narrative */
+  .narrative-box { border: 1px solid rgba(124,58,237,0.4); border-radius: 8px; padding: 1.5rem; background: rgba(124,58,237,0.05); margin-bottom: 2rem; position: relative; }
+  .narrative-badge { position: absolute; top: -10px; left: 1rem; background: var(--accent2); color: white; font-size: 10px; padding: 2px 10px; border-radius: 20px; font-family: 'Syne', sans-serif; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .narrative-text { font-size: 13px; line-height: 1.8; color: var(--text); font-style: italic; }
+
+  /* Section Title */
+  .section-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 1rem; }
+
+  /* Languages */
+  .lang-section { margin-bottom: 2rem; }
+  .lang-bars { display: flex; flex-direction: column; gap: 8px; }
+  .lang-row { display: flex; align-items: center; gap: 12px; }
+  .lang-name { font-size: 12px; width: 100px; flex-shrink: 0; }
+  .lang-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .lang-bar-fill { height: 100%; border-radius: 3px; width: 0%; transition: width 1s ease; }
+  .lang-pct { font-size: 11px; color: var(--muted); width: 40px; text-align: right; flex-shrink: 0; }
+
+  /* Repos */
+  .repos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 2rem; }
+  .repo-card { border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: var(--card-bg); transition: border-color 0.2s; text-decoration: none; display: block; }
+  .repo-card:hover { border-color: rgba(200,255,0,0.3); }
+  .repo-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .repo-desc { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; min-height: 32px; }
+  .repo-meta { display: flex; gap: 12px; }
+  .repo-stat { font-size: 10px; color: var(--muted); }
+
+  /* Tags */
+  .tags-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; }
+  .ptag { border: 1px solid var(--border); border-radius: 2px; padding: 4px 12px; font-size: 11px; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em; font-family: 'Syne', sans-serif; font-weight: 700; }
+
+  /* Timeline */
+  .timeline { margin-bottom: 2rem; }
+  .timeline-item { display: flex; gap: 1rem; }
+  .timeline-left { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent3); flex-shrink: 0; margin-top: 5px; }
+  .timeline-connector { width: 1px; flex: 1; background: var(--border); margin: 4px 0; min-height: 20px; }
+  .timeline-content { flex: 1; padding-bottom: 1rem; }
+  .timeline-year { font-size: 10px; color: var(--accent3); text-transform: uppercase; letter-spacing: 0.1em; }
+  .timeline-event { font-size: 13px; color: var(--text); margin-top: 2px; }
+
+  /* SAVE & SHARE SECTION */
+  .save-section { margin-bottom: 2rem; }
+  .btn-save {
+    width: 100%; padding: 1rem; background: transparent;
+    border: 1px solid var(--accent); border-radius: 6px;
+    color: var(--accent); font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 14px; cursor: pointer;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-save:hover { background: var(--accent); color: #000; }
+  .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+  .share-box {
+    margin-top: 1rem; border: 1px solid rgba(200,255,0,0.3);
+    border-radius: 6px; padding: 1rem; background: rgba(200,255,0,0.04);
+    display: none;
+  }
+  .share-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .share-link-row { display: flex; gap: 8px; align-items: center; }
+  .share-link { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.6rem 0.8rem; color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-copy { background: var(--accent); color: #000; border: none; border-radius: 4px; padding: 0.6rem 1rem; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+  .btn-copy:hover { opacity: 0.85; }
+  .copy-success { font-size: 11px; color: var(--accent); margin-top: 6px; display: none; }
+
+  .reset-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 0.5rem 1rem; cursor: pointer; border-radius: 4px; display: block; margin: 0 auto; transition: all 0.2s; }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .profile-banner { flex-direction: column; text-align: center; }
+    .profile-meta { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero" id="heroSection">
+    <div class="hero-eyebrow">✦ Portfolio Tool</div>
+    <h1 class="hero-title">Your GitHub<br><span>Story</span></h1>
+    <p class="hero-sub">Enter any GitHub username. We'll turn your commit history into a cinematic developer journey.</p>
+    <div class="input-row">
+      <div class="input-prefix">github.com/</div>
+      <input type="text" id="usernameInput" placeholder="torvalds" autocomplete="off" />
+      <button class="btn-generate" id="generateBtn" onclick="generateStory()">Generate →</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loadingSection">
+    <div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="loading-text" id="loadingText">Fetching your commits...</div>
+  </div>
+
+  <!-- STORY OUTPUT -->
+  <div class="story" id="storySection"></div>
+
+</div>
+
+<script>
+const API_BASE_URL = 'http://localhost:3000';
+
+const LANG_COLORS = {
+  JavaScript:'#f7df1e', TypeScript:'#3178c6', Python:'#3572A5',
+  Java:'#b07219', 'C++':'#f34b7d', Rust:'#dea584', Go:'#00ADD8',
+  HTML:'#e34c26', CSS:'#563d7c', Ruby:'#701516', Swift:'#f05138',
+  Kotlin:'#A97BFF', PHP:'#4F5D95', Shell:'#89e051', Vue:'#41b883',
+  Dart:'#00B4AB', 'C#':'#178600', C:'#555555', Scala:'#c22d40'
+};
+
+const loadingMessages = [
+  "Fetching your commits...", "Reading your repositories...",
+  "Analyzing language DNA...", "Calculating your impact...",
+  "Crafting your developer story..."
+];
+
+let loadingInterval;
+let currentStoryData = null; // save karne ke liye data store karo
+
+async function generateStory() {
+  const username = document.getElementById('usernameInput').value.trim();
+  if (!username) { showError('Username daalo pehle!'); return; }
+
+  document.getElementById('errorMsg').textContent = '';
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('heroSection').style.opacity = '0.3';
+  document.getElementById('heroSection').style.pointerEvents = 'none';
+
+  const loadingEl = document.getElementById('loadingSection');
+  loadingEl.style.display = 'block';
+
+  let msgIdx = 0;
+  loadingInterval = setInterval(() => {
+    msgIdx = (msgIdx + 1) % loadingMessages.length;
+    document.getElementById('loadingText').textContent = loadingMessages[msgIdx];
+  }, 1200);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Kuch gadbad hui');
+    }
+
+    const data = await res.json();
+    currentStoryData = { username, ...data }; // save ke liye store karo
+    renderStory(data.user, data.repos, data.storyData, data.narrative);
+
+  } catch(e) {
+    showError(e.message);
+    document.getElementById('heroSection').style.opacity = '1';
+    document.getElementById('heroSection').style.pointerEvents = 'auto';
+  } finally {
+    clearInterval(loadingInterval);
+    loadingEl.style.display = 'none';
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+// ── Save & Share ─────────────────────────────
+async function saveStory() {
+  if (!currentStoryData) return;
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentStoryData)
+    });
+
+    if (!res.ok) throw new Error('Save nahi hua');
+
+    const data = await res.json();
+    const shareUrl = `${window.location.origin}/story/${data.slug}`;
+
+    // Share box dikhao
+    document.getElementById('shareBox').style.display = 'block';
+    document.getElementById('shareLink').textContent = shareUrl;
+    document.getElementById('shareLink').dataset.url = shareUrl;
+    btn.textContent = '✅ Saved!';
+
+  } catch(e) {
+    btn.textContent = '❌ Save failed — retry';
+    btn.disabled = false;
+  }
+}
+
+function copyLink() {
+  const url = document.getElementById('shareLink').dataset.url;
+  navigator.clipboard.writeText(url).then(() => {
+    document.getElementById('copySuccess').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('copySuccess').style.display = 'none';
+    }, 2000);
+  });
+}
+
+function renderStory(user, repos, data, narrative) {
+  const story = document.getElementById('storySection');
+
+  story.innerHTML = `
+    <div class="profile-banner">
+      <img class="avatar" src="${user.avatar_url}" alt="${user.login}" onerror="this.src='https://avatars.githubusercontent.com/u/0'"/>
+      <div class="profile-info">
+        <div class="profile-name">${user.name || user.login}</div>
+        <div class="profile-bio">${user.bio || 'Building things that matter.'}</div>
+        <div class="profile-meta">
+          ${user.location ? `<span class="meta-item">📍 ${user.location}</span>` : ''}
+          ${user.company ? `<span class="meta-item">🏢 ${user.company}</span>` : ''}
+          <span class="meta-item">📅 Since ${data.createdYear}</span>
+          ${user.blog ? `<span class="meta-item">🔗 <a href="${user.blog}" target="_blank">${user.blog.replace(/https?:\/\//,'').slice(0,30)}</a></span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-num">${user.public_repos}</div><div class="stat-label">Repositories</div></div>
+      <div class="stat-box"><div class="stat-num">${data.totalStars}</div><div class="stat-label">Total Stars</div></div>
+      <div class="stat-box"><div class="stat-num">${user.followers}</div><div class="stat-label">Followers</div></div>
+      <div class="stat-box"><div class="stat-num">${data.yearsActive}y</div><div class="stat-label">Years Active</div></div>
+    </div>
+
+    ${narrative ? `
+    <div class="narrative-box">
+      <div class="narrative-badge">✦ AI Story</div>
+      <div class="narrative-text">"${narrative}"</div>
+    </div>` : ''}
+
+    ${data.langs?.length ? `
+    <div class="lang-section">
+      <div class="section-title">Language DNA</div>
+      <div class="lang-bars">
+        ${data.langs.map(l => `
+          <div class="lang-row">
+            <span class="lang-name">${l.lang}</span>
+            <div class="lang-bar-track">
+              <div class="lang-bar-fill" style="background:${LANG_COLORS[l.lang]||'#c8ff00'}" data-width="${l.pct}%"></div>
+            </div>
+            <span class="lang-pct">${l.pct}%</span>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <div class="tags-row">
+      ${data.tags?.map(t=>`<span class="ptag">${t}</span>`).join('') || ''}
+    </div>
+
+    ${data.topRepos?.length ? `
+    <div class="section-title">Top Repositories</div>
+    <div class="repos-grid">
+      ${data.topRepos.map(r=>`
+        <a href="${r.html_url}" target="_blank" class="repo-card">
+          <div class="repo-name">${r.name}</div>
+          <div class="repo-desc">${r.description || 'No description provided.'}</div>
+          <div class="repo-meta">
+            <span class="repo-stat">⭐ ${r.stargazers_count}</span>
+            <span class="repo-stat">🍴 ${r.forks_count}</span>
+            ${r.language ? `<span class="repo-stat">● ${r.language}</span>` : ''}
+          </div>
+        </a>`).join('')}
+    </div>` : ''}
+
+    ${data.timeline?.length ? `
+    <div class="timeline">
+      <div class="section-title">Journey Timeline</div>
+      ${data.timeline.map((item, i) => `
+        <div class="timeline-item">
+          <div class="timeline-left">
+            <div class="timeline-dot"></div>
+            ${i < data.timeline.length-1 ? '<div class="timeline-connector"></div>' : ''}
+          </div>
+          <div class="timeline-content">
+            <div class="timeline-year">${item.year}</div>
+            <div class="timeline-event">${item.event}</div>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- SAVE & SHARE SECTION -->
+    <div class="save-section">
+      <button class="btn-save" id="saveBtn" onclick="saveStory()">
+        💾 Save & Share this Story
+      </button>
+      <div class="share-box" id="shareBox">
+        <div class="share-label">🔗 Share this link</div>
+        <div class="share-link-row">
+          <div class="share-link" id="shareLink"></div>
+          <button class="btn-copy" onclick="copyLink()">Copy</button>
+        </div>
+        <div class="copy-success" id="copySuccess">✅ Link copied!</div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetApp()">← Generate another story</button>
+  `;
+
+  story.style.display = 'block';
+  document.getElementById('heroSection').style.display = 'none';
+
+  setTimeout(() => {
+    document.querySelectorAll('.lang-bar-fill').forEach(el => {
+      el.style.width = el.dataset.width;
+    });
+  }, 100);
+}
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = '⚠ ' + msg;
+}
+
+function resetApp() {
+  currentStoryData = null;
+  document.getElementById('storySection').style.display = 'none';
+  document.getElementById('heroSection').style.display = 'block';
+  document.getElementById('heroSection').style.opacity = '1';
+  document.getElementById('heroSection').style.pointerEvents = 'auto';
+  document.getElementById('usernameInput').value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('usernameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') generateStory();
+  });
+
+  // Agar shared link se aaya hai to story load karo
+  const path = window.location.pathname;
+  if (path.startsWith('/story/')) {
+    const slug = path.split('/story/')[1];
+    if (slug) loadSharedStory(slug);
+  }
+});
+
+// Shared link se story load karo
+async function loadSharedStory(slug) {
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/story/${slug}`);
+    if (!res.ok) throw new Error('Story nahi mili');
+
+    const data = await res.json();
+    renderStory(data.user, data.repos, data.storyData, data.narrative);
+
+    // Save button hide karo shared view mein
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) saveBtn.style.display = 'none';
+
+  } catch(e) {
+    document.getElementById('heroSection').style.display = 'block';
+    showError('Story nahi mili! Link check karo.');
+  } finally {
+    document.getElementById('loadingSection').style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

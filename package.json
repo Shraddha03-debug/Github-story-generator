@@ -1,0 +1,14 @@
+{
+  "name": "github-project",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd BACKEND && npm start",
+    "dev": "cd BACKEND && npm run dev",
+    "bootstrap": "cd BACKEND && npm install",
+    "serve-frontend": "npx live-server FRONTEND --port=5500 --open=/"
+  },
+  "dependencies": {
+    "openai": "^6.37.0"
+  }
+}
